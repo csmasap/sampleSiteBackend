@@ -1,0 +1,24 @@
+{
+  "prompts": [
+    {
+      "id": "analyze_fit",
+      "name": "Analyze Candidate Fit",
+      "template": "Analyze this job information and provide insights about the candidate's qualifications and potential fit for the role based on their answer to the internal question."
+    },
+    {
+      "id": "analyze_salesforce_skills",
+      "name": "Evaluate Salesforce Skills",
+      "template": "Evaluate the candidate's Salesforce skills based on their answer: '{{answer}}'. Consider their experience with automations, integrations, and overall Salesforce knowledge. Provide a detailed assessment and suggestions for improvement."
+    },
+    {
+      "id": "technical_assessment",
+      "name": "Technical Skills Assessment",
+      "template": "Based on the candidate's answer: '{{answer}}', assess their technical skills. Consider the depth of knowledge, familiarity with specific tools, and ability to apply technology to business problems. Provide a rating out of 10 and justify your assessment."
+    },
+    {
+      "id": "follow_up_questions",
+      "name": "Generate Follow-up Questions",
+      "template": "Based on the candidate's answer: '{{answer}}', generate 3-5 follow-up questions that would help further assess their technical skills and experience. Focus on questions that would reveal their depth of knowledge and problem-solving abilities."
+    }
+  ]
+} 
