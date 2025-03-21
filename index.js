@@ -146,9 +146,19 @@ app.delete('/prompts/:id', (req, res) => {
 });
 
 app.get('/getJobs', async (request, response) => {
-    const userInfo = await conn.login(salesforceUsername, salesforcePassword);
-    const result = await conn.query(QUERIES.GET_JOB);
-    return response.send(result);    
+    try {
+        const userInfo = await conn.login(salesforceUsername, salesforcePassword);
+        const result = await conn.query(QUERIES.GET_JOB);
+        console.log('GET_JOB Query:', QUERIES.GET_JOB);
+        console.log('Job data retrieved:', result.records.length > 0 ? {
+            Id: result.records[0].Id,
+            Job_Public_Name__c: result.records[0].Job_Public_Name__c
+        } : 'No job found');
+        return response.send(result);
+    } catch (error) {
+        console.error('Error retrieving jobs:', error);
+        return response.status(500).send({ error: 'Failed to retrieve job data' });
+    }
 });
 
 app.get('/getOpportunityDiscussed', async (request, response) => {
@@ -239,7 +249,7 @@ app.post('/processInternalAnswerGemini', async (req, res) => {
 app.post('/processWithGemini', async (req, res) => {
     try {
         console.log('Received request body:', req.body);
-        const { jobData, opportunityData, promptId } = req.body;
+        const { jobData, opportunityData, promptId, analysis1, analysis2, analysis3 } = req.body;
 
         if (!jobData || !opportunityData) {
             console.error('Missing required data:', { jobData, opportunityData });
@@ -261,8 +271,21 @@ app.post('/processWithGemini', async (req, res) => {
             return res.status(404).json({ error: 'Prompt not found with the provided ID' });
         }
         
-        // Replace the {{answer}} placeholder with the actual answer
-        const promptTemplate = prompt.template.replace(/\{\{answer\}\}/g, answer);
+        // Create a copy of the prompt template for modification
+        let promptTemplate = prompt.template;
+        
+        // Replace all placeholders with their values
+        promptTemplate = promptTemplate.replace(/\{\{answer\}\}/g, answer);
+        
+        // Handle the new placeholders for generate_next_question prompt
+        if (promptId === 'generate_next_question') {
+            const jobDescription = jobData[JOB_FIELDS.STANDARDIZED_JOB_DESCRIPTION] || 'Not provided';
+            promptTemplate = promptTemplate
+                .replace(/\{\{analysis1\}\}/g, analysis1 || 'Not provided')
+                .replace(/\{\{analysis2\}\}/g, analysis2 || 'Not provided')
+                .replace(/\{\{analysis3\}\}/g, analysis3 || 'Not provided')
+                .replace(/\{\{jobDescription\}\}/g, jobDescription);
+        }
 
         // Create the context string
         const context = `
@@ -274,7 +297,7 @@ Opportunity Information:
 - Internal Question: ${opportunityData[OPPORTUNITY_DISCUSSED_FIELDS.INTERNAL_Q1] || 'N/A'}
 - Current Answer: ${answer}
 
-Based on this information, ${promptTemplate}`;
+${promptTemplate}`;
 
         // Make the API request
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {

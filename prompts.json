@@ -19,6 +19,11 @@
       "id": "follow_up_questions",
       "name": "Generate Follow-up Questions",
       "template": "Based on the candidate's answer: '{{answer}}', generate 3-5 follow-up questions that would help further assess their technical skills and experience. Focus on questions that would reveal their depth of knowledge and problem-solving abilities."
+    },
+    {
+      "id": "generate_next_question",
+      "name": "Generate Next Interview Question",
+      "template": "Using the following analyses of the candidate's previous answers and the job description, create one targeted interview question that will best validate if the candidate is a match for this role. The question should address any gaps or concerns identified in the analyses and be directly relevant to the job requirements.\n\nAnalysis 1: {{analysis1}}\n\nAnalysis 2: {{analysis2}}\n\nAnalysis 3: {{analysis3}}\n\nJob Description: {{jobDescription}}\n\nGenerate a single, specific interview question that will help determine if the candidate has the necessary skills and experience for this position."
     }
   ]
 } 
