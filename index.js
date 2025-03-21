@@ -9,14 +9,34 @@ const fs = require('fs');
 const path = require('path');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { OBJECT_NAMES, JOB_FIELDS, OPPORTUNITY_DISCUSSED_FIELDS, RECORD_IDS, QUERIES } = require('./salesforce-fields');
+const OpenAI = require('openai');
+const fileUpload = require('express-fileupload');
 
 var app = Express();
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 app.use(bodyParser.json());
 
+// Serve static files from the public directory
+app.use('/static', Express.static(path.join(__dirname, 'public')));
+
+// File upload middleware
+app.use(fileUpload({
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max file size
+  abortOnLimit: true,
+  createParentPath: true,
+  useTempFiles: false
+}));
+
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Initialize OpenAI
+const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
 const conn = new jsforce.Connection(
     {loginUrl : 'https://login.salesforce.com'}
@@ -331,6 +351,123 @@ ${promptTemplate}`;
         res.status(500).json({ 
             error: 'Error processing with Gemini API', 
             details: error.message 
+        });
+    }
+});
+
+// Text-to-speech endpoint
+app.post('/text-to-speech', async (req, res) => {
+    try {
+        const { text, voice = 'coral', instructions = 'Speak in a professional tone.' } = req.body;
+        
+        if (!text) {
+            return res.status(400).json({ error: 'Text is required' });
+        }
+        
+        // Generate a unique filename
+        const filename = `speech_${Date.now()}.mp3`;
+        const speechFile = path.join(__dirname, 'public', 'speech', filename);
+        
+        // Generate speech using OpenAI
+        const mp3 = await openai.audio.speech.create({
+            model: "gpt-4o-mini-tts",
+            voice: voice,
+            input: text,
+            instructions: instructions,
+        });
+        
+        // Save the file
+        const buffer = Buffer.from(await mp3.arrayBuffer());
+        await fs.promises.writeFile(speechFile, buffer);
+        
+        // Return the URL to the audio file
+        res.json({ 
+            success: true, 
+            audioUrl: `/static/speech/${filename}` 
+        });
+    } catch (error) {
+        console.error('Error generating speech:', error);
+        res.status(500).json({ 
+            error: 'Error generating speech', 
+            details: error.message 
+        });
+    }
+});
+
+// Speech-to-text endpoint
+app.post('/speech-to-text', async (req, res) => {
+    try {
+        // Check if a file was uploaded
+        if (!req.files || !req.files.audio) {
+            console.error('No audio file uploaded');
+            return res.status(400).json({ error: 'No audio file uploaded' });
+        }
+
+        const audioFile = req.files.audio;
+        console.log('Received audio file:', {
+            name: audioFile.name,
+            size: audioFile.size,
+            mimetype: audioFile.mimetype
+        });
+        
+        if (audioFile.size < 100) {
+            console.error('Audio file too small');
+            return res.status(400).json({ error: 'Audio file too small or empty' });
+        }
+
+        // Create a unique filename with timestamp
+        const timestamp = Date.now();
+        
+        // Handle different formats from different browsers
+        let extension = 'webm';
+        if (audioFile.name && audioFile.name.includes('.')) {
+            extension = audioFile.name.split('.').pop();
+        } else if (audioFile.mimetype) {
+            // Handle some common MIME types
+            if (audioFile.mimetype.includes('wav')) extension = 'wav';
+            if (audioFile.mimetype.includes('mp4')) extension = 'mp4';
+            if (audioFile.mimetype.includes('mp3')) extension = 'mp3';
+            if (audioFile.mimetype.includes('ogg')) extension = 'ogg';
+        }
+        
+        const tempFilePath = path.join(__dirname, 'temp', `recording_${timestamp}.${extension}`);
+        
+        // Ensure the temp directory exists
+        const tempDir = path.join(__dirname, 'temp');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        // Save the uploaded file
+        await fs.promises.writeFile(tempFilePath, audioFile.data);
+        console.log(`Saved audio file to ${tempFilePath} (${extension} format)`);
+        
+        // Transcribe the audio using OpenAI's Whisper model
+        console.log('Sending to OpenAI Whisper for transcription...');
+        const transcription = await openai.audio.transcriptions.create({
+            file: fs.createReadStream(tempFilePath),
+            model: "whisper-1",
+            language: "en",
+            response_format: "json"
+        });
+        
+        console.log('Received transcription:', transcription.text);
+        
+        // Clean up the temporary file
+        fs.unlink(tempFilePath, (err) => {
+            if (err) console.error('Error deleting temporary file:', err);
+        });
+        
+        // Return the transcription
+        res.json({
+            success: true,
+            text: transcription.text
+        });
+    } catch (error) {
+        console.error('Error transcribing speech:', error);
+        res.status(500).json({
+            error: 'Error transcribing speech',
+            details: error.message
         });
     }
 });
