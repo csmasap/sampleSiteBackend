@@ -314,7 +314,9 @@ Job Information:
 - Question: ${jobData[JOB_FIELDS.OPPORTUNITY_DISCUSSED_Q1] || 'N/A'}
 
 Opportunity Information:
-- Internal Question: ${opportunityData[OPPORTUNITY_DISCUSSED_FIELDS.INTERNAL_Q1] || 'N/A'}
+- First Question: ${opportunityData[OPPORTUNITY_DISCUSSED_FIELDS.INTERNAL_Q1] || 'N/A'}
+- Second Question: ${opportunityData[OPPORTUNITY_DISCUSSED_FIELDS.INTERNAL_Q2] || 'N/A'}
+- Third Question: ${opportunityData[OPPORTUNITY_DISCUSSED_FIELDS.INTERNAL_Q3] || 'N/A'}
 - Current Answer: ${answer}
 
 ${promptTemplate}`;
