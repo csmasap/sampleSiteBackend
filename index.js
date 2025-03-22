@@ -265,6 +265,60 @@ app.post('/processInternalAnswerGemini', async (req, res) => {
     }
 });
 
+
+app.post('/generateFifthQuestion', async (req, res) => {
+    try {
+        const { jobData,question,answer, analysis1, analysis2, analysis3,question1,question2,question3 } = req.body;
+        if (!jobData) {
+            console.error('Missing required data:', { jobData });
+            return res.status(400).json({ error: 'Missing required job or opportunity data' });
+        }
+
+        const context1 = `A candidate applying for a job position with job description "${jobData[JOB_FIELDS.STANDARDIZED_JOB_DESCRIPTION]}" provided answer "${answer}" for the question "${question}.
+                         Can you detemine whether the candidate is a good fit for the position. Be concise and precise. Give me only one bullet point`;
+
+        const context = `A candidate applying for a job position with job description "${jobData[JOB_FIELDS.STANDARDIZED_JOB_DESCRIPTION]}"
+            provided answer "${answer}" for the question "${question},
+            answer "${question1}" for the question "${analysis1},
+            answer "${question2}" for the question "${analysis2} and
+            answer "${question3}" for the question "${analysis3}.
+            Can you generate another interview question based on the provided information above.`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: context
+                        }]
+                    }]
+                })
+            });
+    
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
+            }
+    
+            const data = await response.json();
+            console.log('Gemini API Response:', data);
+    
+            // Extract the generated text from the response
+            const generatedText = data.candidates[0].content.parts[0].text;
+            
+            res.json({ analysis: generatedText });
+    
+    } catch (error) {
+        console.error('Error in Gemini processing:', error);
+        res.status(500).json({ 
+            error: 'Error processing with Gemini API', 
+            details: error.message 
+        });
+    }
+});
 // Updated Gemini endpoint
 app.post('/processWithGemini', async (req, res) => {
     try {
