@@ -184,6 +184,8 @@ app.get('/getJobs', async (request, response) => {
 app.get('/getOpportunityDiscussed', async (request, response) => {
     const userInfo = await conn.login(salesforceUsername, salesforcePassword);
     const result = await conn.query(QUERIES.GET_OPPORTUNITY_DISCUSSED);
+    console.log('opp data retrieved:', result);
+    console.log('opp contact name retrieved:', result.records[0].TR1__Candidate__r.Name);
     return response.send(result);    
 });
 
@@ -227,7 +229,7 @@ app.post('/processInternalAnswerGemini', async (req, res) => {
 
        
         const context = `A candidate applying for a job position with job description "${jobData[JOB_FIELDS.STANDARDIZED_JOB_DESCRIPTION]}" provided answer "${answer}" for the question "${question}.
-                         Can you detemine whether the candidate is a good fit for the position. Be concise and precise. Give me only one bullet point`;
+                         Can you provide a question encouraging  the candidate to further elaborate on the question related to the position. Give me only the question.`;
 
         // Make the API request
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
